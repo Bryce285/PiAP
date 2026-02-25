@@ -8,9 +8,43 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/Bryce285/PiAP/internal/utils"
 )
+
+var countryCodes = [249]string{"AD", "AE", "AF", "AG", "AI", "AL", "AM", "AO",
+	"AQ", "AR", "AS", "AT", "AU", "AW", "AX", "AZ",
+	"BA", "BB", "BD", "BE", "BF", "BG", "BH", "BI",
+	"BJ", "BL", "BM", "BN", "BO", "BQ", "BR", "BS",
+	"BT", "BV", "BW", "BY", "BZ", "CA", "CC", "CD",
+	"CF", "CG", "CH", "CI", "CK", "CL", "CM", "CN",
+	"CO", "CR", "CU", "CV", "CW", "CX", "CY", "CZ",
+	"DE", "DJ", "DK", "DM", "DO", "DZ", "EC", "EE",
+	"EG", "EH", "ER", "ES", "ET", "FI", "FJ", "FK",
+	"FM", "FO", "FR", "GA", "GB", "GD", "GE", "GF",
+	"GG", "GH", "GI", "GL", "GM", "GN", "GP", "GQ",
+	"GR", "GS", "GT", "GU", "GW", "GY", "HK", "HM",
+	"HN", "HR", "HT", "HU", "ID", "IE", "IL", "IM",
+	"IN", "IO", "IQ", "IR", "IS", "IT", "JE", "JM",
+	"JO", "JP", "KE", "KG", "KH", "KI", "KM", "KN",
+	"KP", "KR", "KW", "KY", "KZ", "LA", "LB", "LC",
+	"LI", "LK", "LR", "LS", "LT", "LU", "LV", "LY",
+	"MA", "MC", "MD", "ME", "MF", "MG", "MH", "MK",
+	"ML", "MM", "MN", "MO", "MP", "MQ", "MR", "MS",
+	"MT", "MU", "MV", "MW", "MX", "MY", "MZ", "NA",
+	"NC", "NE", "NF", "NG", "NI", "NL", "NO", "NP",
+	"NR", "NU", "NZ", "OM", "PA", "PE", "PF", "PG",
+	"PH", "PK", "PL", "PM", "PN", "PR", "PS", "PT",
+	"PW", "PY", "QA", "RE", "RO", "RS", "RU", "RW",
+	"SA", "SB", "SC", "SD", "SE", "SG", "SH", "SI",
+	"SJ", "SK", "SL", "SM", "SN", "SO", "SR", "SS",
+	"ST", "SV", "SX", "SY", "SZ", "TC", "TD", "TF",
+	"TG", "TH", "TJ", "TK", "TL", "TM", "TN", "TO",
+	"TR", "TT", "TV", "TW", "TZ", "UA", "UG", "UM",
+	"US", "UY", "UZ", "VA", "VC", "VE", "VG", "VI",
+	"VN", "VU", "WF", "WS", "YE", "YT", "ZA", "ZM",
+	"ZW"}
 
 type HostapdConf struct {
 	Interface             string
@@ -71,14 +105,57 @@ func (c HostapdConf) String() string {
 	)
 }
 
-// TODO - check user-given parameters for validity
-func (c HostapdConf) WriteHostapdConf(ssid, hw_mode, channel, passphrase, country string) error {
+func (c HostapdConf) WriteHostapdConf(ssid, hw_mode, passphrase, country string, ignore_broadcast_ssid bool, channel uint) error {
+	if len(ssid) > 32 {
+		return errors.New("SSID cannot be longer than 32 bytes")
+	}
+	if hw_mode != "g" && hw_mode != "a" {
+		return errors.New("Unrecognized input for hw_mode. Acceptable options are 'g' and 'a'")
+	}
+
+	if channel != 0 {
+		if channel >= 1 && channel <= 13 {
+			if hw_mode != "g" {
+				return errors.New("Invalid channel for selected value of hw_mode")
+			}
+		}
+		if channel >= 36 && channel <= 165 {
+			if hw_mode != "a" {
+				return errors.New("Invalid channel for selected value of hw_mode")
+			}
+		}
+	}
+	channelStr := strconv.Itoa(int(channel))
+
+	if len(passphrase) < 8 || len(passphrase) > 63 {
+		return errors.New("Passphrase must be between 8 and 63 characters in length")
+	}
+
+	countryFound := false
+	for _, value := range countryCodes {
+		if country == value {
+			countryFound = true
+			break
+		}
+	}
+
+	if countryFound == false {
+		return errors.New("Not a valid country code")
+	}
+
+	var ignoreBroadcastStr string
+	if ignore_broadcast_ssid {
+		ignoreBroadcastStr = "1"
+	} else {
+		ignoreBroadcastStr = "0"
+	}
+
 	confDefault := HostapdConf{
 		Interface:             "wlan0",
 		Driver:                "nl80211",
 		Ssid:                  ssid,
 		Hw_mode:               hw_mode,
-		Channel:               channel,
+		Channel:               channelStr,
 		Auth_algs:             "1",
 		Wpa:                   "2",
 		Wpa_passphrase:        passphrase,
@@ -87,7 +164,7 @@ func (c HostapdConf) WriteHostapdConf(ssid, hw_mode, channel, passphrase, countr
 		Rsn_pairwise:          "CCMP",
 		Country:               country,
 		Macaddr_acl:           "0",
-		Ignore_broadcast_ssid: "0",
+		Ignore_broadcast_ssid: ignoreBroadcastStr,
 		Wpa_group_rekey:       "86400",
 		Beacon_int:            "100",
 		Dtim_period:           "2",
