@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+
+	"github.com/Bryce285/PiAP/internal/utils"
 )
 
 type HostapdConf struct {
@@ -69,13 +71,14 @@ func (c HostapdConf) String() string {
 	)
 }
 
-func (c HostapdConf) WriteHostapdConf(ssid string, passphrase string, country string) error {
+// TODO - check user-given parameters for validity
+func (c HostapdConf) WriteHostapdConf(ssid, hw_mode, channel, passphrase, country string) error {
 	confDefault := HostapdConf{
 		Interface:             "wlan0",
 		Driver:                "nl80211",
 		Ssid:                  ssid,
-		Hw_mode:               "g",
-		Channel:               "7",
+		Hw_mode:               hw_mode,
+		Channel:               channel,
 		Auth_algs:             "1",
 		Wpa:                   "2",
 		Wpa_passphrase:        passphrase,
@@ -99,7 +102,7 @@ func (c HostapdConf) WriteHostapdConf(ssid string, passphrase string, country st
 		return err
 	}
 	if !info.IsDir() {
-		removeErr := RemoveFile("/etc/hostapd/hostapd.conf.backup")
+		removeErr := utils.RemoveFile("/etc/hostapd/hostapd.conf.backup")
 		if removeErr != nil {
 			return removeErr
 		}

@@ -1,10 +1,12 @@
 /* This file is for utility functions relating to service configurations */
 
-package services
+package utils
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 )
 
@@ -48,4 +50,13 @@ func ClearConf(filepath string) error {
 	}
 
 	return nil
+}
+
+func IsValidIPv4(ip string) bool {
+	parsed := net.ParseIP(ip)
+	return parsed != nil && parsed.To4() != nil
+}
+
+func IpToUint32(ip net.IP) uint32 {
+	return binary.BigEndian.Uint32(ip)
 }
