@@ -5,11 +5,11 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"os"
 )
 
-// TODO - let users edit the hostapd config
 type HostapdConf struct {
 	Interface             string
 	Driver                string
@@ -69,7 +69,7 @@ func (c HostapdConf) String() string {
 	)
 }
 
-func (c HostapdConf) WriteConf(ssid string, passphrase string, country string) {
+func (c HostapdConf) WriteHostapdConf(ssid string, passphrase string, country string) error {
 	confDefault := HostapdConf{
 		Interface:             "wlan0",
 		Driver:                "nl80211",
@@ -90,5 +90,27 @@ func (c HostapdConf) WriteConf(ssid string, passphrase string, country string) {
 		Dtim_period:           "2",
 	}
 
-	os.WriteFile("/etc/hostapd/hostapd.conf", []byte(confDefault.String()), 0644)
+	info, err := os.Stat("/etc/hostapd/hostapd.conf")
+	if errors.Is(err, os.ErrNotExist) {
+		return os.WriteFile("/etc/hostapd/hostapd.conf", []byte(confDefault.String()), 0644)
+	}
+	if err != nil {
+		fmt.Printf("Error checking /etc/hostapd/hostapd.conf file existence: %v\n", err)
+		return err
+	}
+	if !info.IsDir() {
+		removeErr := RemoveFile("/etc/hostapd/hostapd.conf.backup")
+		if removeErr != nil {
+			return removeErr
+		}
+
+		renameErr := os.Rename("/etc/hostapd/hostapd.conf", "/etc/hostapd/hostapd.conf.backup")
+		if renameErr != nil {
+			return renameErr
+		}
+
+		return os.WriteFile("/etc/hostapd/hostapd.conf", []byte(confDefault.String()), 0644)
+	}
+
+	return errors.New("Error: could not create /etc/hostapd/hostapd.conf")
 }
